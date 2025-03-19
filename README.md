@@ -9,3 +9,5 @@ Description of Experiment:
 Channels used and order: 
 
 Peptides used:
+
+Cell segmentation tool: 
