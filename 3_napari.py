@@ -4,22 +4,20 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+import skimage as ski
 import napari
 from loguru import logger
-from scipy import ndimage
-from skimage.measure import label
 from skimage.segmentation import clear_border
 from napari.settings import get_settings
 get_settings().application.ipy_interactive = False
 logger.info('Import ok')
 
-image_folder = 'python_results/initial_cleanup/'
-mask_folder = 'python_results/cellpose_masking/'
-output_folder = 'python_results/napari_masking/'
+image_folder = 'results/initial_cleanup/'
+mask_folder = 'results/cellpose_masking/'
+output_folder = 'results/napari_masking/'
 
 if not os.path.exists(output_folder):
     os.mkdir(output_folder)
-
 
 def filter_masks(image, image_name, mask):
     """Quality control of cellpose-generated masks
@@ -88,6 +86,9 @@ for name, image in remove_border_cells.items():
     # remove cells near border
     cells_filtered = clear_border(image[1][0, :, :], buffer_size=10)
 
+    # keep objects larger than minimum size
+    cells_filtered = ski.morphology.remove_small_objects(cells_filtered, min_size=1000)
+
     # keep intracellular nuclei
     intra_nuclei = np.where(cells_filtered >= 1, image[1][1, :, :], 0)
     
@@ -95,8 +96,7 @@ for name, image in remove_border_cells.items():
     cells_filtered_stack = np.stack((cells_filtered.copy(), intra_nuclei.copy()))
     stack_channels(name, masks_filtered, cells_filtered_stack)
 
-# ---------------Manually filter masks---------------
-# ONLY RUN THIS CHUNK ONCE. Manually validate cellpose segmentation.
+# ----------------Manually filter masks----------------
 already_filtered_masks = [filename.replace('_mask.npy', '') for filename in os.listdir(
     f'{output_folder}') if '_mask.npy' in filename]
 unval_images = dict([(key, val) for key, val in images.items() if key not in already_filtered_masks])
@@ -107,3 +107,12 @@ for image_name, image_stack in unval_images.items():
     mask_stack = masks_filtered[image_name].copy()
     filtered_masks[image_name] = filter_masks(
         image_stack, image_name, mask_stack)
+
+#### ----------------------- EXPLANATION OF HOW NAPARI GUI WORKS -----------------------
+# Once you run the above chunk, a napari window will open and everytime you close it, the next image will appear and the mask you just edited/ looked at will save 
+
+#### How to stop but not save - hit interrupt in the interactive window to close napari without saving the current image you are at 
+
+##### Each mask number is unique to each image so labels just need to be unique per image not per entire set of images 
+
+#### Any changes to the image in terms of brightness/ contrast is not saved to the raw data - the contrast changes are only for visualization, but do not affect downstream quantifications 
